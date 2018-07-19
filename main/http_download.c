@@ -137,11 +137,11 @@ void http_download_task(void *pvParameters)
 	        /* Read HTTP response */
 	        printf("Read HTTP response \n");
 	        bool flag = false;
-	        FILE *f = fopen(rec_data.name,"wb");
-	        if(f == NULL){
-	          	printf("Failed to open file \n");
-	        }else
-	           	printf("Open file \n");
+//	        bool update_flag = false;
+	        FILE * f = fopen(rec_data.name,"r");
+	        if(f==NULL){
+	        	printf("Json doesn't exist \n");
+	        }
 	        int count = 0;
 	        //If it's not a json file, don't need to filter out http header
 	        if(strstr(rec_data.name,"json.txt") == NULL){
@@ -156,13 +156,21 @@ void http_download_task(void *pvParameters)
 	            bzero(recv_buf, sizeof(recv_buf));
 	            r = read(s, recv_buf, sizeof(recv_buf)-1);
 	            if(strstr(recv_buf,"update")){
-	          		if(strstr(recv_buf,rec_data.version) == NULL || strstr(rec_data.version,"0xxx") != NULL){
+	          		if(strstr(recv_buf,rec_data.version) == NULL){
 	               		printf("Updates are available \n");
 	               		printf(rec_data.version);
 	               		printf("\n");
+	               		printf("%s\n",recv_buf);
+	               		f = fopen(rec_data.name,"wb");
+	               	  if(f == NULL){
+	               	    printf("Failed to open file for writing \n");
+	               	  }else
+	               		printf("Open file \n");
 	                }
 	            	else{
 	            		printf("No update available \n");
+	            		printf(rec_data.version);
+	            		printf("\n");
 	            		break;
 	            	}
 

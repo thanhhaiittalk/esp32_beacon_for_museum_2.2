@@ -33,6 +33,7 @@ void read_JSON()
 		while(fgets(line,sizeof(line),json_file)!=NULL){
 			strcat(json_string,line);
 		}
+		fclose(json_file);
 		printf(json_string);
 		bool status = check_update(json_string);
 		free(json_string);

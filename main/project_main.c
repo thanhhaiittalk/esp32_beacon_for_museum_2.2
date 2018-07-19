@@ -13,7 +13,7 @@ xQueueHandle HttpDownload_Queue_Handle = 0;
 xQueueHandle HttpUpdate_Queue_Handle = NULL;
 TaskHandle_t xhttp_download_Handle = NULL;
 TaskHandle_t xhttp_update_Handle = NULL;
-
+bool flag_json_exist = false;
 void app_main()
 {
 	Beacon_Queue_Handle = xQueueCreate(3,sizeof(simple_beacon));

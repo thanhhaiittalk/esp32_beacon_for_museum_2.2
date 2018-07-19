@@ -60,8 +60,8 @@ long cal_size(FILE * file)
 	return size;
 }
 
-/*Check the existence of the database file
- *If database file isn't available, download it*/
+/*Check the existence of the json file
+ *If json isn't available, download it*/
 bool check_JSON()
 {
 
