@@ -77,9 +77,9 @@ void http_download_task(void *pvParameters)
 	struct in_addr *addr;
 	int s,r;
 	char recv_buf[64];
-	data rec_data;
+	char * rec_json;
 	while(1){
-		if(xQueueReceive(HttpDownload_Queue_Handle,&rec_data,portMAX_DELAY) || update_flag == available){
+		if(xQueueReceive(HttpDownload_Queue_Handle,&rec_json,portMAX_DELAY)){
 			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
 			                            false, true, portMAX_DELAY);
 
