@@ -34,12 +34,17 @@
 #include "my_ibeacon.h"
 #include "my_sd_card.h"
 #include "parse_JSON.h"
+
+/*Define*/
+#define not_available 	false
+#define available 		true
+
 /*Struct*/
 typedef struct{
 	char *name;
 	char *url;
 	char *request;
-	char * version;
+	char *version;
 }data;
 
 #endif /* MAIN_PROJECT_MAIN_H_ */

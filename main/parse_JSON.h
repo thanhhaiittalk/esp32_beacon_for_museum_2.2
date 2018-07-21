@@ -23,6 +23,7 @@
 #include "cJSON.h"
 
 /*Prototype*/
-bool check_update(const char * const database);
-void read_JSON();
+void check_update(const char * const database);
+void read_JSON_for_checking_version();
+void read_JSON_for_downloading(void *pdparameter);
 #endif /* MAIN_PARSE_JSON_H_ */

@@ -13,7 +13,11 @@ xQueueHandle HttpDownload_Queue_Handle = 0;
 xQueueHandle HttpUpdate_Queue_Handle = NULL;
 TaskHandle_t xhttp_download_Handle = NULL;
 TaskHandle_t xhttp_update_Handle = NULL;
-bool flag_json_exist = false;
+TaskHandle_t xread_downld_Handle = NULL;
+
+bool update_flag = false;
+bool json_downloaded = false;
+
 void app_main()
 {
 	Beacon_Queue_Handle = xQueueCreate(3,sizeof(simple_beacon));
@@ -23,6 +27,7 @@ void app_main()
     ibeacon_init();
     sd_card_init();
     initialise_wifi();
-    read_JSON();
+    xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xhttp_download_Handle);
+    read_JSON_for_checking_version();
     xTaskCreate(&action_inzone,"action_inzone",2048,NULL,7,NULL);
 }

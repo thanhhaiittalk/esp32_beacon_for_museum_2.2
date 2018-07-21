@@ -77,7 +77,7 @@ bool check_JSON()
 				    "User-Agent: esp-idf/1.0 esp32\r\n"
 				    "\r\n";
 			data.version = "0xxx";
-			xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,&xhttp_download_Handle);
+			//xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,&xhttp_download_Handle);
 			if(!xQueueSend(HttpDownload_Queue_Handle,&data,portMAX_DELAY)){
 				printf("Failed to send request to HTTP download task \n");
 			}

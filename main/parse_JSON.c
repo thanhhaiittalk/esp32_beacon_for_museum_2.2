@@ -8,14 +8,14 @@
 #include "parse_JSON.h"
 #include "my_sd_card.h"
 #include "http_download.h"
+#include "project_main.h"
 
-//extern xQueueHandle HttpUpdate_Queue_Handle;
-//extern TaskHandle_t xhttp_update_Handle;
 extern xQueueHandle HttpDownload_Queue_Handle;
 extern xTaskHandle xhttp_download_Handle;
 char temp_update[32];
+extern bool update_flag;
 
-void read_JSON()
+void read_JSON_for_checking_version()
 {
 	char line[64];
 	char * json_string;
@@ -35,18 +35,18 @@ void read_JSON()
 		}
 		fclose(json_file);
 		printf(json_string);
-		bool status = check_update(json_string);
+		check_update(json_string);
+		printf("Check: exit http download task \n");
 		free(json_string);
 	}
 }
 
-bool check_update(const char * const json)
+void check_update(const char * const json)
 {
 	data data;
 	const cJSON *update = NULL;
     const cJSON *artifacts = NULL;
 
-    bool status = false;
     cJSON *muse_json = cJSON_Parse(json);
     if (muse_json == NULL)
     {
@@ -55,14 +55,13 @@ bool check_update(const char * const json)
         {
             fprintf(stderr, "Error before: %s\n", error_ptr);
         }
-        status = 0;
+        update_flag = false;
         goto end;
     }
     update = cJSON_GetObjectItemCaseSensitive(muse_json, "update");
     if (cJSON_IsString(update) && (update->valuestring != NULL))
     {
         printf("Checking update \"%s\"\n", update->valuestring);
-//        char temp_update[32];
         sprintf(temp_update,"%s",update->valuestring);
         data.version = temp_update;
         printf("v:%s t:%s\n",data.version,temp_update);
@@ -73,13 +72,7 @@ bool check_update(const char * const json)
    					"Host: "WEB_SERVER"\r\n"
 					"User-Agent: esp-idf/1.0 esp32\r\n"
 					"\r\n";
-//   	xTaskCreate(&http_check_update_task,"http_check_update_task",2048,NULL,5,xhttp_update_Handle);
-//   	if(!xQueueSend(HttpUpdate_Queue_Handle,&data,portMAX_DELAY)){
-//   		printf("Parse JSON: Failed to send request to http_check_update_task \n");
-//   	}
-//   	else
-//   		printf("Parse JSON: Successfully send request to http_check_update_task \n");
-   	xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xhttp_download_Handle);
+
    	if(!xQueueSend(HttpDownload_Queue_Handle,&data,portMAX_DELAY)){
    		printf("Parse JSON: Failed to send request to http_check_update_task \n");
    	}
@@ -87,5 +80,24 @@ bool check_update(const char * const json)
    		printf("Parse JSON: Successfully send request to http_check_update_task \n");
 	end:
 		cJSON_Delete(muse_json);
-	    return status;
+}
+
+void read_JSON_for_downloading(void *pdparameter)
+{
+//	data new_data;
+//	new_data.version = "0xxx";
+//	new_data.name = "/sdcard/test.mp3";
+//	new_data.url = "xxx";
+//	new_data.request = "GET http://www.stream.esy.es/database/data/hcm_fine_arts_museum/phuoc_long_operation/english/sound/phuoc_long_operation.mp3 HTTP/1.0\r\n"
+//						"Host: "WEB_SERVER"\r\n"
+//						"User-Agent: esp-idf/1.0 esp32\r\n"
+//						"\r\n";
+// 	if(!xQueueSend(HttpDownload_Queue_Handle,&new_data,portMAX_DELAY)){
+//   		printf("read JSON: Failed to send request to http_check_update_task \n");
+//   	}
+//   	else
+//   		printf("read JSON: Successfully send request to http_check_update_task \n");
+	while(1){
+		printf("read json task \n");
+	}
 }
