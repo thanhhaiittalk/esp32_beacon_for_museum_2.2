@@ -13,5 +13,8 @@
 
 /*Prototype*/
 void updater(void *pvParameters);
+void send_JSON_request();
+bool check_file(char * file_name);
+void parseJSON_downld_data();
 
 #endif /* MAIN_UPDATER_H_ */

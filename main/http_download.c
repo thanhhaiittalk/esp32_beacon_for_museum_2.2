@@ -24,6 +24,9 @@ extern xQueueHandle HttpDownload_Queue_Handle;
 extern TaskHandle_t xhttp_download_Handle;
 extern TaskHandle_t xhttp_update_Handle;
 extern char temp_update[32];
+//extern xSemaphoreHandle jsonSignal;
+extern xSemaphoreHandle downldSignal;
+bool JSON_done = false;
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -75,6 +78,7 @@ void http_download_task(void *pvParameters)
 	int s,r;
 	char recv_buf[64];
 	data rec_data;
+	bool json_flag = false;
 	while(1){
 		if(xQueueReceive(HttpDownload_Queue_Handle,&rec_data,portMAX_DELAY)){
 			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
@@ -150,6 +154,7 @@ void http_download_task(void *pvParameters)
 	        }
 	        else{
 	        	printf(rec_data.name);
+	        	json_flag = true;
 	        }
 
 	        do {
@@ -169,6 +174,9 @@ void http_download_task(void *pvParameters)
 	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
 	        close(s);
 	    }
+		if(json_flag)
+			JSON_done = true;
+		vTaskDelay(5/portTICK_PERIOD_MS);
 	}
 }
 
