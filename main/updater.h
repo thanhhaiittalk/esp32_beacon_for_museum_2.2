@@ -8,6 +8,10 @@
 #ifndef MAIN_UPDATER_H_
 #define MAIN_UPDATER_H_
 
+/*Declare libraries*/
+#include "project_main.h";
 
+/*Prototype*/
+void updater(void *pvParameters);
 
 #endif /* MAIN_UPDATER_H_ */

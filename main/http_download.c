@@ -168,10 +168,6 @@ void http_download_task(void *pvParameters)
 	        fclose(f);
 	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
 	        close(s);
-//	        if(xhttp_download_Handle != NULL){
-//	        	vTaskDelete(xhttp_download_Handle);
-//	        	printf("HTTP task was deleted after using \n");
-//	        }
 	    }
 	}
 }
