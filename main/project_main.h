@@ -33,7 +33,7 @@
 #include "http_download.h"
 #include "my_ibeacon.h"
 #include "my_sd_card.h"
-#include "parse_JSON.h"
+
 
 /*Define*/
 #define not_available 	false

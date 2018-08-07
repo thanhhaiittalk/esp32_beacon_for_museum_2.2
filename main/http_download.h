@@ -36,7 +36,6 @@
 /*Define*/
 #define WEB_SERVER "www.stream.esy.es"
 #define WEB_PORT 80
-#define WEB_URL "http://www.stream.esy.es/database/data/hcm_fine_arts_museum/overview/hcm_fine_arts_museum.txt"
 
 #define WIFI_SSID	"Hai Dotcom"
 #define WIFI_PASS 	"doremonnobita"

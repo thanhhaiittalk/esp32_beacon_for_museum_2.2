@@ -84,6 +84,11 @@ void http_download_task(void *pvParameters)
 			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
 			                            false, true, portMAX_DELAY);
 
+			printf("%s\n",rec_data.name);
+			printf("%s\n",rec_data.url);
+			printf("%s\n",rec_data.request);
+			printf("%s\n",rec_data.version);
+
 			printf("Connected to AP");
 
 			int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
@@ -144,7 +149,7 @@ void http_download_task(void *pvParameters)
 //	        bool update_flag = false;
 	        FILE * f = fopen(rec_data.name,"wb");
 	        if(f==NULL){
-	        	printf("Json doesn't exist \n");
+	        	printf("Failed to open file for writing \n");
 	        }
 	        int count = 0;
 	        //If it's not a json file, don't need to filter out http header
@@ -176,6 +181,7 @@ void http_download_task(void *pvParameters)
 	    }
 		if(json_flag)
 			JSON_done = true;
+		xSemaphoreGive(downldSignal);
 		vTaskDelay(5/portTICK_PERIOD_MS);
 	}
 }

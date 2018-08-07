@@ -9,12 +9,17 @@
 #define MAIN_UPDATER_H_
 
 /*Declare libraries*/
-#include "project_main.h";
+#include "project_main.h"
+#include "cJSON.h"
+#include "my_sd_card.h"
 
 /*Prototype*/
 void updater(void *pvParameters);
 void send_JSON_request();
 bool check_file(char * file_name);
-void parseJSON_downld_data();
+void parseJSON_downld_data(void *pvParameters);
+char* read_JSON(char* json_name);
 
+/*Define*/
+#define JSON_name	"/sdcard/json.txt"
 #endif /* MAIN_UPDATER_H_ */
