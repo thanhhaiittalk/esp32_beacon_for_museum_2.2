@@ -21,12 +21,15 @@ EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 
 extern xQueueHandle HttpDownload_Queue_Handle;
-extern TaskHandle_t xhttp_download_Handle;
-extern TaskHandle_t xhttp_update_Handle;
-extern char temp_update[32];
-//extern xSemaphoreHandle jsonSignal;
+extern xQueueHandle HttpUpdate_Queue_Handle;
+//extern TaskHandle_t xhttp_download_Handle;
+//extern TaskHandle_t ;
+
 extern xSemaphoreHandle downldSignal;
+extern xSemaphoreHandle updateSignal;
+
 bool JSON_done = false;
+bool new_version = false;
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -146,7 +149,6 @@ void http_download_task(void *pvParameters)
 	        /* Read HTTP response */
 	        printf("Read HTTP response \n");
 	        bool flag = false;
-//	        bool update_flag = false;
 	        FILE * f = fopen(rec_data.name,"wb");
 	        if(f==NULL){
 	        	printf("Failed to open file for writing \n");
@@ -186,96 +188,92 @@ void http_download_task(void *pvParameters)
 	}
 }
 
-//void http_check_update_task(void *pvParameters)
-//{
-//	const struct addrinfo hints = {
-//				.ai_family = AF_INET,
-//				.ai_socktype = SOCK_STREAM,
-//	};
-//	struct addrinfo *res;
-//	struct in_addr *addr;
-//	int s,r;
-//	char recv_buf[64];
-//	data rec_data;
-//	while(1){
-//		if(xQueueReceive(HttpDownload_Queue_Handle,&rec_data,portMAX_DELAY)){
-//			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-//			                            false, true, portMAX_DELAY);
-//			printf("Connected to AP");
-//
-//			int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
-//
-//			if(err != 0 || res == NULL) {
-//				printf("DNS lookup failed err=%d res=%p \n", err, res);
-//		        vTaskDelay(1000 / portTICK_PERIOD_MS);
-//		        continue;
-//	        }
-//
-//	        /* Code to print the resolved IP.
-//           Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
-//	        addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
-//	        printf("DNS lookup succeeded. IP=%s \n", inet_ntoa(*addr));
-//
-//	        s = socket(res->ai_family, res->ai_socktype, 0);
-//	        if(s < 0) {
-//	        	printf("... Failed to allocate socket. \n");
-//	            freeaddrinfo(res);
-//	            vTaskDelay(1000 / portTICK_PERIOD_MS);
-//	            continue;
-//	        }
-//	        printf("... allocated socket\n");
-//
-//	        if(connect(s, res->ai_addr, res->ai_addrlen) != 0) {
-//	        	printf("... socket connect failed errno=%d \n", err);
-//	        	close(s);
-//	        	freeaddrinfo(res);
-//	        	vTaskDelay(4000 / portTICK_PERIOD_MS);
-//	        	continue;
-//	        }
-//
-//	        printf("... connected \n");
-//	        freeaddrinfo(res);
-//	        if (write(s, rec_data.request, strlen(rec_data.request)) < 0) {
-//	            printf("... socket send failed \n");
-//	            close(s);
-//	            vTaskDelay(4000 / portTICK_PERIOD_MS);
-//	            continue;
-//	        }
-//	        printf("... socket send success \n");
-//	        struct timeval receiving_timeout;
-//	        receiving_timeout.tv_sec = 5;
-//	        receiving_timeout.tv_usec = 0;
-//	        if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout,
-//                sizeof(receiving_timeout)) < 0) {
-//	            printf("... failed to set socket receiving timeout \n");
-//	            close(s);
-//	            vTaskDelay(4000 / portTICK_PERIOD_MS);
-//	            continue;
-//	        }
-//	        printf("... set socket receiving timeout success\n");
-//	        /* Read HTTP response */
-//	        printf("Read HTTP response \n");
-//	        do {
-//	            bzero(recv_buf, sizeof(recv_buf));
-//	            r = read(s, recv_buf, sizeof(recv_buf)-1);
-//	            if(strstr(recv_buf,rec_data.update) == NULL){
-//	            	printf("Updates are available \n");
-//	            	printf("Downloading new version ... \n");
-//	            	goto end;
-//	            }
-//	        } while(r > 0);
-//	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
-//	        close(s);
-//	        end:
-//				xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,&xhttp_download_Handle);
-//				if(!xQueueSend(HttpDownload_Queue_Handle,&rec_data,portMAX_DELAY)){
-//					printf("HTTP update task: Failed to send request to http download task \n");
-//				}
-//	        	if(xhttp_update_Handle != NULL){
-//	        		vTaskDelete(xhttp_update_Handle);
-//	        		printf("HTTP update task was deleted after using \n");
-//	        	}
-//
-//	    }
-//	}
-//}
+void http_check_update_task(void *pvParameters)
+{
+	const struct addrinfo hints = {
+				.ai_family = AF_INET,
+				.ai_socktype = SOCK_STREAM,
+	};
+	struct addrinfo *res;
+	struct in_addr *addr;
+	int s,r;
+	char recv_buf[64];
+	char* update_rec;
+	update_rec = (char*)calloc(15,sizeof(char));
+	static const char* request = "GET " WEB_URL " HTTP/1.0\r\n"
+								 "Host: "WEB_SERVER"\r\n"
+								 "User-Agent: esp-idf/1.0 esp32\r\n"
+								 "\r\n";
+	while(1){
+		if(xQueueReceive(HttpUpdate_Queue_Handle,&update_rec,portMAX_DELAY)){
+			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+			                            false, true, portMAX_DELAY);
+			printf("Connected to AP");
+
+			int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
+
+			if(err != 0 || res == NULL) {
+				printf("DNS lookup failed err=%d res=%p \n", err, res);
+		        vTaskDelay(1000 / portTICK_PERIOD_MS);
+		        continue;
+	        }
+
+	        /* Code to print the resolved IP.
+           Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
+	        addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
+	        printf("DNS lookup succeeded. IP=%s \n", inet_ntoa(*addr));
+
+	        s = socket(res->ai_family, res->ai_socktype, 0);
+	        if(s < 0) {
+	        	printf("... Failed to allocate socket. \n");
+	            freeaddrinfo(res);
+	            vTaskDelay(1000 / portTICK_PERIOD_MS);
+	            continue;
+	        }
+	        printf("... allocated socket\n");
+
+	        if(connect(s, res->ai_addr, res->ai_addrlen) != 0) {
+	        	printf("... socket connect failed errno=%d \n", err);
+	        	close(s);
+	        	freeaddrinfo(res);
+	        	vTaskDelay(4000 / portTICK_PERIOD_MS);
+	        	continue;
+	        }
+
+	        printf("... connected \n");
+	        freeaddrinfo(res);
+	        if (write(s, request, strlen(request)) < 0) {
+	            printf("... socket send failed \n");
+	            close(s);
+	            vTaskDelay(4000 / portTICK_PERIOD_MS);
+	            continue;
+	        }
+	        printf("... socket send success \n");
+	        struct timeval receiving_timeout;
+	        receiving_timeout.tv_sec = 5;
+	        receiving_timeout.tv_usec = 0;
+	        if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout,
+                sizeof(receiving_timeout)) < 0) {
+	            printf("... failed to set socket receiving timeout \n");
+	            close(s);
+	            vTaskDelay(4000 / portTICK_PERIOD_MS);
+	            continue;
+	        }
+	        printf("... set socket receiving timeout success\n");
+	        /* Read HTTP response */
+	        printf("Read HTTP response \n");
+	        do {
+	            bzero(recv_buf, sizeof(recv_buf));
+	            r = read(s, recv_buf, sizeof(recv_buf)-1);
+	            if(strstr(recv_buf,update_rec) == NULL){
+	            	printf("Updates are available \n");
+	            	printf("Delete old files and download new version... \n");
+	            	new_version = available;
+	            }
+	        } while(r > 0);
+	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
+	        close(s);
+	    }
+		xSemaphoreGive(updateSignal);
+	}
+}

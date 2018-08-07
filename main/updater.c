@@ -7,13 +7,19 @@
 
 #include "updater.h"
 
-extern xQueueHandle HttpDownload_Queue_Handle;
 extern bool JSON_done;
+extern bool new_version;
+
+extern xQueueHandle HttpDownload_Queue_Handle;
+extern xQueueHandle HttpUpdate_Queue_Handle;
+
 extern TaskHandle_t xUpdater_Handle;
-extern TaskHandle_t xhttp_download_Handle;
+extern TaskHandle_t xHttp_download_Handle;
+extern TaskHandle_t xHttp_update_Handle;
 TaskHandle_t xParseJSON_Handle = NULL;
 
 extern xSemaphoreHandle downldSignal;
+extern xSemaphoreHandle updateSignal;
 
 bool check_file(char * file_name)
 {
@@ -66,10 +72,9 @@ char* read_JSON(char* json_name)
 
 void parseJSON_downld_data(void *pvParameters)
 {
-	printf("parse json \r\n");
+	//printf("parse json to download\r\n");
 	const char* json_string = read_JSON(JSON_name);
 	data data;
-	const cJSON *update;
 	const cJSON *artifacts;
 	const cJSON *artifact;
 
@@ -82,10 +87,7 @@ void parseJSON_downld_data(void *pvParameters)
 		goto end;
 
 	}
-//	update = cJSON_GetObjectItemCaseSensitive(muse_json,"update");
-//	if(cJSON_IsString(update) && (update->valuestring != NULL))
 	artifacts = cJSON_GetObjectItemCaseSensitive(muse_json,"artifacts");
-
 	while(1){
 		cJSON_ArrayForEach(artifact,artifacts){
 			cJSON *base = cJSON_GetObjectItemCaseSensitive(artifact,"base");
@@ -97,20 +99,20 @@ void parseJSON_downld_data(void *pvParameters)
 				data.url = calloc(url_size,sizeof(char));
 				sprintf(data.url,"http://www.stream.esy.es/database/data/hcm_fine_arts_museum/%s/english/sound/%s.mp3",
 						base->valuestring,base->valuestring);
-				printf("%s\n",data.url);
+				//printf("%s\n",data.url);
 
 				int request_size = url_size
 				+ strlen("GET  HTTP/1.0\r\nHost: www.stream.esy.es \r\nUser-Agent: esp-idf/1.0 esp32\r\n\r\n") +10;
 				data.request = calloc(request_size,sizeof(char));
 				sprintf(data.request,"GET %s HTTP/1.0\r\nHost: www.stream.esy.es\r\nUser-Agent: esp-idf/1.0 esp32\r\n\r\n",
 						data.url);
-				printf("%s\n",data.request);
+				//printf("%s\n",data.request);
 			}
 			if(cJSON_IsNumber(id)){
 				int name_size = strlen("/sdcard/x.mp3");
 				data.name=calloc(name_size,sizeof(char));
 				sprintf(data.name,"/sdcard/%d.mp3",id->valueint);
-				printf("%s\n",data.name);
+				//printf("%s\n",data.name);
 			}
 			else goto end;
 
@@ -123,11 +125,52 @@ void parseJSON_downld_data(void *pvParameters)
 		}
 		goto end;
 	}
-	end:
-		printf("Download data complete\nDelete http download task \n");
-		vTaskDelete(xhttp_download_Handle);
-		vTaskDelete(xParseJSON_Handle);
+end:
+	printf("Download data complete\nDelete http download task \n");
+	cJSON_Delete(muse_json);
+	vTaskDelete(xHttp_download_Handle);
+	vTaskDelete(xParseJSON_Handle);
 
+}
+
+/*Parse old JSON to delete all old files before downloading new version*/
+void parseJSON_delete(){
+	const char* json_string = read_JSON(JSON_name);
+	const cJSON *artifacts;
+	const cJSON *artifact;
+	cJSON *muse_json = cJSON_Parse(json_string);
+	artifacts = cJSON_GetObjectItemCaseSensitive(muse_json,"artifacts");
+	cJSON_ArrayForEach(artifact,artifacts){
+		cJSON *id = cJSON_GetObjectItemCaseSensitive(artifact,"id");
+		if(cJSON_IsNumber(id)){
+			int name_size = strlen("/sdcard/x.mp3");
+			char* name=calloc(name_size,sizeof(char));
+			sprintf(name,"/sdcard/%d.mp3",id->valueint);
+			unlink(name);
+		}else goto end;
+	}
+end:
+	cJSON_Delete(muse_json);
+}
+
+/*Read version from JSON*/
+char* read_version(){
+	char* version;
+	const char* json_string = read_JSON(JSON_name);
+	const cJSON *update;
+	cJSON *muse_json = cJSON_Parse(json_string);
+    update = cJSON_GetObjectItemCaseSensitive(muse_json, "update");
+    version = (char*)calloc(16,sizeof(char));
+    if (cJSON_IsString(update) && (update->valuestring != NULL))
+    {
+        printf("Checking update \"%s\"\n", update->valuestring);
+        sprintf(version,"%s",update->valuestring);
+    }else goto end;
+    cJSON_Delete(muse_json);
+    return version;
+end:
+	cJSON_Delete(muse_json);
+	return "error";
 }
 
 void updater(void *pvParameters)
@@ -141,10 +184,25 @@ void updater(void *pvParameters)
 		}
 		else{
 			if(!send_flag){
-				//printf("UPDATER: JSON file was available \r\n");
-				//if out_of_date
-					//remove json
-				//else delete task updater
+				printf("UPDATER: JSON file was available \r\n");
+				static char* version;
+				 xTaskCreate(&http_check_update_task,"check update task",2048,NULL,6,xHttp_update_Handle);
+				if(xSemaphoreTake(updateSignal,portMAX_DELAY)){
+					version = calloc(16,sizeof(char));
+					version = read_version();
+					if(!xQueueSend(HttpUpdate_Queue_Handle,&version,portMAX_DELAY))
+						printf("Failed to send request to check update task\n");
+				}
+
+				if(new_version == available){
+					parseJSON_delete();
+					unlink("/sdcard/json.txt");
+					printf("UPDATER: Delete old JSON\n");
+				}else{
+					vTaskDelete(xHttp_download_Handle);
+					vTaskDelete(xHttp_update_Handle);
+					vTaskDelete(xUpdater_Handle);
+				}
 			}
 		}
 		if(JSON_done && send_flag){

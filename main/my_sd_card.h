@@ -23,6 +23,6 @@
 
 /*Prototype*/
 void sd_card_init();
-bool check_JSON();
+
 
 #endif /* MAIN_MY_SD_CARD_H_ */

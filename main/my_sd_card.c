@@ -8,9 +8,6 @@
 #include "my_sd_card.h"
 #include "project_main.h"
 
-extern xQueueHandle HttpDownload_Queue_Handle;
-extern TaskHandle_t xhttp_download_Handle;
-
 void sd_card_init()
 {
 	sdmmc_host_t host = SDMMC_HOST_DEFAULT();
@@ -51,45 +48,6 @@ void sd_card_init()
 	    sdmmc_card_print_info(stdout, card);
 }
 
-/*Calculate size of file*/
-long cal_size(FILE * file)
-{
-	fseek(file,0L,SEEK_END);
-	long size = ftell(file);
-	fseek(file,0L,SEEK_SET);
-	return size;
-}
 
-/*Check the existence of the json file
- *If json isn't available, download it*/
-bool check_JSON()
-{
-
-	data data;
-	//TaskHandle_t xHttpHandle;
-	FILE* json= fopen("/sdcard/json.txt", "r");
-	if (json==NULL){
-			printf("JSON file isn't available \r\n Downloading JSON ... \n ");
-			data.url = "http://www.stream.esy.es/database/data/hcm_fine_arts_museum/overview/hcm_fine_arts_museum.txt";
-			data.name = "/sdcard/json.txt";
-			data.request= "GET http://www.stream.esy.es/database/data/hcm_fine_arts_museum/overview/hcm_fine_arts_museum.txt HTTP/1.0\r\n"
-				    "Host: "WEB_SERVER"\r\n"
-				    "User-Agent: esp-idf/1.0 esp32\r\n"
-				    "\r\n";
-			data.version = "0xxx";
-			//xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,&xhttp_download_Handle);
-			if(!xQueueSend(HttpDownload_Queue_Handle,&data,portMAX_DELAY)){
-				printf("Failed to send request to HTTP download task \n");
-			}
-			return false;
-		}
-	else{
-		printf("JSON file is available \n");
-		//printf("Size: %ld bytes",cal_size(json));
-		return true;
-	}
-	fclose(json);
-
-}
 
 
