@@ -22,14 +22,16 @@ const int CONNECTED_BIT = BIT0;
 
 extern xQueueHandle HttpDownload_Queue_Handle;
 extern xQueueHandle HttpUpdate_Queue_Handle;
+
 //extern TaskHandle_t xhttp_download_Handle;
-//extern TaskHandle_t ;
+extern TaskHandle_t xHttp_update_Handle;
 
 extern xSemaphoreHandle downldSignal;
 extern xSemaphoreHandle updateSignal;
 
 bool JSON_done = false;
 bool new_version = false;
+bool check_update = false;
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -87,12 +89,8 @@ void http_download_task(void *pvParameters)
 			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
 			                            false, true, portMAX_DELAY);
 
-			printf("%s\n",rec_data.name);
-			printf("%s\n",rec_data.url);
-			printf("%s\n",rec_data.request);
-			printf("%s\n",rec_data.version);
-
-			printf("Connected to AP");
+			printf("Downloading %s\n",rec_data.name);
+			printf("Connected to AP\n");
 
 			int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
 
@@ -148,33 +146,29 @@ void http_download_task(void *pvParameters)
 
 	        /* Read HTTP response */
 	        printf("Read HTTP response \n");
-	        bool flag = false;
+	        bool write_flag = false;
 	        FILE * f = fopen(rec_data.name,"wb");
 	        if(f==NULL){
 	        	printf("Failed to open file for writing \n");
 	        }
-	        int count = 0;
 	        //If it's not a json file, don't need to filter out http header
 	        if(strstr(rec_data.name,"json.txt") == NULL){
-	        	printf("Not JSON \n");
-	        	flag = true;
+	        	write_flag = true;
 	        }
 	        else{
 	        	printf(rec_data.name);
 	        	json_flag = true;
 	        }
-
 	        do {
 	            bzero(recv_buf, sizeof(recv_buf));
 	            r = read(s, recv_buf, sizeof(recv_buf)-1);
 	            for(int i = 0; i<r; i++){
 	            	//'{': begin of json file
 	            	if(recv_buf[i] == '{')
-	            		flag = true;
-	            	if(flag == true)
+	            		write_flag = true;
+	            	if(write_flag == true)
 	            		fputc(recv_buf[i],f);
 	            }
-	            printf("\n downloading ... %d \n",count++);
 	        } while(r > 0);
 
 	        fclose(f);
@@ -208,7 +202,7 @@ void http_check_update_task(void *pvParameters)
 		if(xQueueReceive(HttpUpdate_Queue_Handle,&update_rec,portMAX_DELAY)){
 			xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
 			                            false, true, portMAX_DELAY);
-			printf("Connected to AP");
+			printf("Connected to AP\n");
 
 			int err = getaddrinfo(WEB_SERVER, "80", &hints, &res);
 
@@ -270,10 +264,13 @@ void http_check_update_task(void *pvParameters)
 	            	printf("Delete old files and download new version... \n");
 	            	new_version = available;
 	            }
+	        	break;
 	        } while(r > 0);
 	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
 	        close(s);
+	        check_update = true;
 	    }
 		xSemaphoreGive(updateSignal);
+		vTaskDelete(xHttp_update_Handle);
 	}
 }
