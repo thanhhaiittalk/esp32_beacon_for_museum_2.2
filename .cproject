@@ -54,11 +54,11 @@
 							<tool id="org.eclipse.cdt.build.core.settings.holder.2119030772" name="Assembly" superClass="org.eclipse.cdt.build.core.settings.holder.2073053942">
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.1989675444" languageId="org.eclipse.cdt.core.assembly" languageName="Assembly" sourceContentType="org.eclipse.cdt.core.asmSource" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
-							<tool id="org.eclipse.cdt.build.core.settings.holder.851749686" name="GNU C++" superClass="org.eclipse.cdt.build.core.settings.holder.2101190755">
+							<tool id="org.eclipse.cdt.build.core.settings.holder.851749686" name="GNU C++" superClass="org.eclipse.cdt.build.core.settings.holder.2073053942">
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.1854056486" languageId="org.eclipse.cdt.core.g++" languageName="GNU C++" sourceContentType="org.eclipse.cdt.core.cxxSource,org.eclipse.cdt.core.cxxHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
-							<tool id="org.eclipse.cdt.build.core.settings.holder.689296466" name="GNU C" superClass="org.eclipse.cdt.build.core.settings.holder.1868426313">
-								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.2083900746" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
+							<tool id="org.eclipse.cdt.build.core.settings.holder.689296466" name="GNU C" superClass="org.eclipse.cdt.build.core.settings.holder.2073053942">
+								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.2083900746" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/esp32/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/newlib/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${IDF_PATH}/components/freertos/include&quot;"/>

@@ -39,9 +39,9 @@ bool check_file(char * file_name)
 void send_JSON_request()
 {
 	data data;
-	data.url = "http://www.stream.esy.es/database/data/hcm_fine_arts_museum/overview/hcm_fine_arts_museum.txt";
-	data.name = "/sdcard/json.txt";
-	data.request = 	"GET http://www.stream.esy.es/database/data/hcm_fine_arts_museum/overview/hcm_fine_arts_museum.txt HTTP/1.0\r\n"
+	data.url = WEB_URL;
+	data.name = JSON_NAME;
+	data.request = 	"GET "WEB_URL" HTTP/1.0\r\n"
 		    		"Host: "WEB_SERVER"\r\n"
 					"User-Agent: esp-idf/1.0 esp32\r\n"
 					"\r\n";
@@ -73,11 +73,12 @@ char* read_JSON(char* json_name)
 void parseJSON_downld_data(void *pvParameters)
 {
 	//printf("parse json to download\r\n");
-	const char* json_string = read_JSON(JSON_name);
+	const char* json_string = read_JSON(JSON_NAME);
 	data data;
 	const cJSON *artifacts;
 	const cJSON *artifact;
 
+	uint8_t url_size = 0;
 	cJSON *muse_json = cJSON_Parse(json_string);
 	if(muse_json == NULL){
 		const char *error_ptr = cJSON_GetErrorPtr();
@@ -92,27 +93,21 @@ void parseJSON_downld_data(void *pvParameters)
 		cJSON_ArrayForEach(artifact,artifacts){
 			cJSON *base = cJSON_GetObjectItemCaseSensitive(artifact,"base");
 			cJSON *id = cJSON_GetObjectItemCaseSensitive(artifact,"id");
+			printf("parseJSON_downld_data: %d",id->valueint);
 			if(cJSON_IsString(base) && (base -> valuestring != NULL)){
-
-				int url_size = strlen("http://www.stream.esy.es/database/data/hcm_fine_arts_museum//english/sound/")
-								+strlen(base->valuestring)*2+4;
+				/*Calculate string length of URL and */
+				url_size = strlen(WEB_URL_BASE) + strlen(base->valuestring)*2+4;
 				data.url = calloc(url_size,sizeof(char));
-				sprintf(data.url,"http://www.stream.esy.es/database/data/hcm_fine_arts_museum/%s/english/sound/%s.mp3",
-						base->valuestring,base->valuestring);
-				//printf("%s\n",data.url);
+				sprintf(data.url,WEB_URL_CONTENT,base->valuestring,base->valuestring);
 
-				int request_size = url_size
-				+ strlen("GET  HTTP/1.0\r\nHost: www.stream.esy.es \r\nUser-Agent: esp-idf/1.0 esp32\r\n\r\n") +10;
+				int request_size = url_size + strlen(WEB_REQUEST) +10;
 				data.request = calloc(request_size,sizeof(char));
-				sprintf(data.request,"GET %s HTTP/1.0\r\nHost: www.stream.esy.es\r\nUser-Agent: esp-idf/1.0 esp32\r\n\r\n",
-						data.url);
-				//printf("%s\n",data.request);
+				sprintf(data.request,WEB_URL_REQUEST,data.url);
 			}
 			if(cJSON_IsNumber(id)){
-				int name_size = strlen("/sdcard/x.mp3");
+				int name_size = strlen("/sdcard/xxx.wav");
 				data.name=calloc(name_size,sizeof(char));
-				sprintf(data.name,"/sdcard/%d.mp3",id->valueint);
-				//printf("%s\n",data.name);
+				sprintf(data.name,"/sdcard/%d.wav",id->valueint);
 			}
 			else goto end;
 
@@ -120,13 +115,13 @@ void parseJSON_downld_data(void *pvParameters)
 			if(!xQueueSend(HttpDownload_Queue_Handle,&data,portMAX_DELAY))
 				printf("Failed to send request to HTTP download\r\n");
 			else
-				printf("Send request to download data \r\n");
+				printf("Send request to download data %d \r\n", id->valueint);
 		}
 		printf("go to end\n");
 		goto end;
 	}
 end:
-//	printf("Download data complete\nDelete http download task \n");
+	printf("Download data complete\nDelete http download task \n");
 	cJSON_Delete(muse_json);
 	vTaskDelete(xHttp_download_Handle);
 	vTaskDelete(xParseJSON_Handle);
@@ -136,7 +131,7 @@ end:
 /*Parse old JSON to delete all old files before downloading new version*/
 void parseJSON_delete(){
 	printf("parse json to delete \n");
-	const char* json_string = read_JSON(JSON_name);
+	const char* json_string = read_JSON(JSON_NAME);
 	const cJSON *artifacts;
 	const cJSON *artifact;
 	cJSON *muse_json = cJSON_Parse(json_string);
@@ -144,9 +139,9 @@ void parseJSON_delete(){
 	cJSON_ArrayForEach(artifact,artifacts){
 		cJSON *id = cJSON_GetObjectItemCaseSensitive(artifact,"id");
 		if(cJSON_IsNumber(id)){
-			int name_size = strlen("/sdcard/x.mp3");
+			int name_size = strlen("/sdcard/xxx.wav");
 			char* name=calloc(name_size,sizeof(char));
-			sprintf(name,"/sdcard/%d.mp3",id->valueint);
+			sprintf(name,"/sdcard/%d.wav",id->valueint);
 			if(unlink(name)==0)
 				printf("Delete file %s successful\n",name);
 			else
@@ -160,7 +155,7 @@ end:
 /*Read version from JSON*/
 char* read_version(){
 	char* version;
-	const char* json_string = read_JSON(JSON_name);
+	const char* json_string = read_JSON(JSON_NAME);
 	const cJSON *update;
 	cJSON *muse_json = cJSON_Parse(json_string);
     update = cJSON_GetObjectItemCaseSensitive(muse_json, "update");
@@ -182,13 +177,11 @@ void updater(void *pvParameters)
 {
 	static bool send_flag = false;
 	while(1){
-
-		if(check_file(JSON_name) == not_available && send_flag == false){
+		if(check_file(JSON_NAME) == not_available && send_flag == false){
 			printf("UPDATER: JSON is not available\r\n");
 			send_JSON_request();
 			send_flag = true;
-		}
-		else{
+		}else{
 			if(!send_flag){
 				printf("UPDATER: JSON file was available \r\n");
 				static char* version;

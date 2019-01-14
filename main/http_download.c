@@ -6,12 +6,6 @@
 // */
 #include "http_download.h"
 #include "my_sd_card.h"
-//
-
-//char REQUEST[] = "GET " WEB_URL " HTTP/1.0\r\n"
-//    "Host: "WEB_SERVER"\r\n"
-//    "User-Agent: esp-idf/1.0 esp32\r\n"
-//    "\r\n";
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 EventGroupHandle_t wifi_event_group;
@@ -23,7 +17,7 @@ const int CONNECTED_BIT = BIT0;
 extern xQueueHandle HttpDownload_Queue_Handle;
 extern xQueueHandle HttpUpdate_Queue_Handle;
 
-//extern TaskHandle_t xhttp_download_Handle;
+
 extern TaskHandle_t xHttp_update_Handle;
 
 extern xSemaphoreHandle downldSignal;
@@ -61,8 +55,8 @@ void initialise_wifi(void)
     ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
     wifi_config_t wifi_config = {
     			.sta = {
-    					.ssid = "Hai Dotcom",
-    					.password = "doremonnobita",
+    					.ssid = WIFI_SSID,
+    					.password = WIFI_PASS,
     					.bssid_set = 0
     			},
     		};
@@ -149,7 +143,7 @@ void http_download_task(void *pvParameters)
 	        bool write_flag = false;
 	        FILE * f = fopen(rec_data.name,"wb");
 	        if(f==NULL){
-	        	printf("Failed to open file for writing \n");
+	        	printf("HTTP_Download task: Failed to open file for writing \n");
 	        }
 	        //If it's not a json file, don't need to filter out http header
 	        if(strstr(rec_data.name,"json.txt") == NULL){

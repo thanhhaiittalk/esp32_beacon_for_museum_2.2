@@ -57,8 +57,8 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
                 static uint8_t number_of_scannings = 0;
                 printf("________________________________________________________________________ \n");
                 ESP_LOGI(DEMO_TAG, "----------iBeacon Found----------");
-                //esp_log_buffer_hex("IBEACON_DEMO: Device address:", scan_result->scan_rst.bda, ESP_BD_ADDR_LEN );
-                //esp_log_buffer_hex("IBEACON_DEMO: Proximity UUID:", ibeacon_data->ibeacon_vendor.proximity_uuid, ESP_UUID_LEN_128);
+                esp_log_buffer_hex("IBEACON_DEMO: Device address:", scan_result->scan_rst.bda, ESP_BD_ADDR_LEN );
+                esp_log_buffer_hex("IBEACON_DEMO: Proximity UUID:", ibeacon_data->ibeacon_vendor.proximity_uuid, ESP_UUID_LEN_128);
 
                 uint16_t major = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.major);
                 uint16_t minor = ENDIAN_CHANGE_U16(ibeacon_data->ibeacon_vendor.minor);
@@ -73,7 +73,7 @@ void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
                 	if(number_of_scannings == 5){
                 		number_of_scannings = 0;
                 		//vTaskDelay(2000/portTICK_PERIOD_MS);
-                		printf("----------------------Complete a session---------------------- \n");
+                		printf("\n----------------------Complete a session---------------------- \n");
                 	}
                 }
             }
@@ -156,6 +156,7 @@ void process_beacon_array(esp_ble_ibeacon_t *ibeacon_data_recieved,uint8_t numbe
 {
 	static esp_ble_ibeacon_t *ibeacon_array;
 	static uint8_t number_of_beacons = 0;
+	simple_beacon beacon;
 	bool check = false;
 	printf("processing beacon array - number of scanning: %d \n",number_of_scanning);
 	if(number_of_scanning == 1){
@@ -204,11 +205,15 @@ void process_beacon_array(esp_ble_ibeacon_t *ibeacon_data_recieved,uint8_t numbe
 			if(number_of_beacons>1){
 				printf("2nd RSSI: %d\n",(int)(ibeacon_array+1)->ibeacon_vendor.rssi);
 			}
-			uint16_t minor_send = ENDIAN_CHANGE_U16(ibeacon_array->ibeacon_vendor.minor);
-			uint16_t major_send = ENDIAN_CHANGE_U16(ibeacon_array->ibeacon_vendor.major);
-			simple_beacon beacon;
-			beacon.major = major_send;
-			beacon.minor = minor_send;
+
+			beacon.major = ENDIAN_CHANGE_U16(ibeacon_array->ibeacon_vendor.major);
+			beacon.minor = ENDIAN_CHANGE_U16(ibeacon_array->ibeacon_vendor.minor);
+			beacon.rssi  = (int)ibeacon_array->ibeacon_vendor.rssi;
+			for(uint8_t i = 0; i < 16; i++){
+				beacon.uuid[i] = ibeacon_array->ibeacon_vendor.proximity_uuid[i];
+				printf("%x",beacon.uuid[i]);
+			}
+
 			if(! xQueueSend(Beacon_Queue_Handle,&beacon,portMAX_DELAY)){
 				printf("Failed to send \n");
 			}
@@ -218,20 +223,118 @@ void process_beacon_array(esp_ble_ibeacon_t *ibeacon_data_recieved,uint8_t numbe
 	}
 }
 
+/*Combine beacon id into a string*/
+void combine_beacon_id(simple_beacon beacon, char * beacon_id)
+{
+	beacon_id = (char*)calloc(40,sizeof(char*));
+
+	sprintf(beacon_id,"%2x%2x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x_%02d_%04d",beacon.uuid[0],beacon.uuid[1],beacon.uuid[2],beacon.uuid[3],
+	beacon.uuid[4],beacon.uuid[5],beacon.uuid[6],beacon.uuid[7],beacon.uuid[8],beacon.uuid[9],beacon.uuid[10],beacon.uuid[11],
+	beacon.uuid[12],beacon.uuid[13],beacon.uuid[14],beacon.uuid[15],beacon.major,beacon.minor);
+}
+
+bool check_database(char * beacon_id, const char * const json_string)
+{
+
+	bool result;
+	cJSON * artifacts = NULL;
+	cJSON * artifact = NULL;
+	char file_play[20];
+	cJSON * muse_json = cJSON_Parse(json_string);
+	printf("check_database function: %s \r\n",beacon_id);
+
+	if(muse_json == NULL){
+		const char * error_ptr = cJSON_GetErrorPtr();
+		if (error_ptr != NULL){
+			printf("Error before: %s\r\n", error_ptr);
+		}
+		printf("json not found \r\n");
+		return false;
+	}
+	artifacts = cJSON_GetObjectItemCaseSensitive(muse_json, "artifacts");
+	cJSON_ArrayForEach(artifact, artifacts){
+		cJSON * id = cJSON_GetObjectItemCaseSensitive(artifact, "id");
+		cJSON * beacon = cJSON_GetObjectItemCaseSensitive(artifact, "beacon");
+		if(cJSON_IsString(beacon)){
+			printf("%s\r\n",beacon->valuestring);
+			if(strstr(beacon_id, beacon->valuestring) != NULL){
+				sprintf(file_play,"/sdcard/%d.wav",id->valueint);
+				aplay_wav(&file_play);
+				printf("Check database: Found \r\n");
+				return true;
+			}
+			else
+			{
+				result = false;
+				printf("Check database: Not Found\r\n");
+			}
+		}
+	}
+	return result;
+}
+
+bool introduce(simple_beacon beacon)
+{
+	bool result = false;
+	char * json_string;
+	char line[64];
+	char * beacon_id;
+
+	/*Get JSON string*/
+	FILE * json_file = fopen("/sdcard/json.txt","r");
+    if (json_file==NULL){
+    	printf("Failed to open json file for reading\r\n");
+    	return false;
+    }
+    fseek(json_file,0L,SEEK_END);
+    long size = ftell(json_file);
+    printf("size: %ld \n",size);
+    fseek(json_file,0L,SEEK_SET);
+    json_string =(char*) calloc(size,sizeof(char*));
+    while(fgets(line,sizeof(line),json_file)!=NULL){
+    	strcat(json_string,line);
+    }
+
+    /*Combine beacon ID into a string*/
+    beacon_id = (char*)calloc(40,sizeof(char*));
+
+    sprintf(beacon_id,"%x%x%x%x-%x%x-%x%x-%x%x-%x%x%x%x%x%x_%d_%d",beacon.uuid[0],beacon.uuid[1],beacon.uuid[2],beacon.uuid[3],
+    		beacon.uuid[4],beacon.uuid[5],beacon.uuid[6],beacon.uuid[7],beacon.uuid[8],beacon.uuid[9],beacon.uuid[10],beacon.uuid[11],
+			beacon.uuid[12],beacon.uuid[13],beacon.uuid[14],beacon.uuid[15],beacon.major,beacon.minor);
+    printf("beacon recv: %s\r\n",beacon_id);
+
+    /*Check database to play audio*/
+    if(check_database(beacon_id, json_string) == false){
+    	return false;
+    }
+
+    free(beacon_id);
+    free(json_string);
+	return result;
+};
+
+void action_process(simple_beacon beacon_now, simple_beacon beacon_new)
+{
+	char id[50];
+	if(beacon_now.major != beacon_new.major && beacon_now.minor != beacon_new.minor){
+		beacon_now = beacon_new;
+		printf("action_process: new beacon \r\n");
+		introduce(beacon_new);
+	}
+	else{
+		/*do nothing*/
+		return;
+	}
+}
+
 void action_inzone(void *parameter)
 {
-	simple_beacon beacon;
+	simple_beacon beacon_new;
+	simple_beacon beacon_now;
 	while(1){
-		if(xQueueReceive(Beacon_Queue_Handle,&beacon,portMAX_DELAY)){
-			printf("Received major,minor: %d - %d \n",beacon.major, beacon.minor);
-			char id[9];
-			sprintf(id,"%d_%d",beacon.major,beacon.minor);
-//			if(check_database(id).check){
-//				printf("action in zone \n");
-//			}
-//			else{
-//				printf("Can't find this beacon in database\n");
-//			}
+		if(xQueueReceive(Beacon_Queue_Handle,&beacon_new,portMAX_DELAY)){
+			action_process(beacon_now,beacon_new);
+			printf("action_inzone: action process done \r\n");
 		}
 		else{
 			printf("Failed to received \n");

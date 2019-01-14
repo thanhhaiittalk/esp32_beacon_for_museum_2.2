@@ -7,6 +7,7 @@
 #include "my_sd_card.h"
 #include "http_download.h"
 #include "updater.h"
+#include "aplay.h"
 
 xQueueHandle Beacon_Queue_Handle = 0;
 xQueueHandle HttpDownload_Queue_Handle = 0;
@@ -36,8 +37,12 @@ void app_main()
     ibeacon_init();
     sd_card_init();
     initialise_wifi();
-
-    xTaskCreate(&updater,"updater",2048,NULL,7,xUpdater_Handle);
-    xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xHttp_download_Handle);
+    WM8978_config();
+    //xTaskCreate(&updater,"updater",2048,NULL,7,xUpdater_Handle);
+    //xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xHttp_download_Handle);
     xTaskCreate(&action_inzone,"action_inzone",2048,NULL,5,NULL);
+    if(update_flag == true){
+    	//ibeacon_init();
+    	//create task action in zone
+    }
 }
