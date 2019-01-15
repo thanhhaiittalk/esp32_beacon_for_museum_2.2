@@ -10,6 +10,8 @@
 static const char* DEMO_TAG = "IBEACON";
 extern esp_ble_ibeacon_vendor_t vendor_config;
 extern xQueueHandle Beacon_Queue_Handle;
+extern xQueueHandle Audio_Queue_Handle;
+
 
 //(IBEACON_MODE == IBEACON_RECEIVER)
 static esp_ble_scan_params_t ble_scan_params = {
@@ -231,7 +233,24 @@ void combine_beacon_id(simple_beacon beacon, char * beacon_id)
 	sprintf(beacon_id,"%2x%2x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x_%02d_%04d",beacon.uuid[0],beacon.uuid[1],beacon.uuid[2],beacon.uuid[3],
 	beacon.uuid[4],beacon.uuid[5],beacon.uuid[6],beacon.uuid[7],beacon.uuid[8],beacon.uuid[9],beacon.uuid[10],beacon.uuid[11],
 	beacon.uuid[12],beacon.uuid[13],beacon.uuid[14],beacon.uuid[15],beacon.major,beacon.minor);
+	/*for(int i = 0; i < 15; i++){
+		char temp[2];
+		if(beacon.uuid[i]> 0xf){
+			sprintf(temp,"%x",beacon.uuid[i]);
+		}
+		if(beacon.uuid[i] < 0xf){
+			sprintf(temp,"0%x",beacon.uuid[i]);
+		}
+		strcat(beacon_id, temp);
+		if(i == 3 || i == 5 || i== 7 || i== 9){
+			strcat(beacon_id,"-");
+		}
+	}
+	char temp[20];
+	sprintf(temp,"_%d_%d",beacon.major, beacon.minor);
+	strcat(beacon_id, temp);*/
 }
+
 
 bool check_database(char * beacon_id, const char * const json_string)
 {
@@ -259,8 +278,13 @@ bool check_database(char * beacon_id, const char * const json_string)
 			printf("%s\r\n",beacon->valuestring);
 			if(strstr(beacon_id, beacon->valuestring) != NULL){
 				sprintf(file_play,"/sdcard/%d.wav",id->valueint);
-				aplay_wav(&file_play);
-				printf("Check database: Found \r\n");
+				printf("Check database: Found %s\r\n",beacon_id);
+
+				/*if(!xQueueSend(Audio_Queue_Handle,file_play,portMAX_DELAY)){
+					printf("Queue send to audio task failed \n");
+				}*/
+				aplay_wav(file_play);
+				* beacon_id ='\0'; // empty beacon id string;
 				return true;
 			}
 			else
@@ -297,10 +321,10 @@ bool introduce(simple_beacon beacon)
 
     /*Combine beacon ID into a string*/
     beacon_id = (char*)calloc(40,sizeof(char*));
+    sprintf(beacon_id,"%2x%2x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x_%d_%d",beacon.uuid[0],beacon.uuid[1],beacon.uuid[2],beacon.uuid[3],
+    	beacon.uuid[4],beacon.uuid[5],beacon.uuid[6],beacon.uuid[7],beacon.uuid[8],beacon.uuid[9],beacon.uuid[10],beacon.uuid[11],
+    	beacon.uuid[12],beacon.uuid[13],beacon.uuid[14],beacon.uuid[15],beacon.major,beacon.minor);
 
-    sprintf(beacon_id,"%x%x%x%x-%x%x-%x%x-%x%x-%x%x%x%x%x%x_%d_%d",beacon.uuid[0],beacon.uuid[1],beacon.uuid[2],beacon.uuid[3],
-    		beacon.uuid[4],beacon.uuid[5],beacon.uuid[6],beacon.uuid[7],beacon.uuid[8],beacon.uuid[9],beacon.uuid[10],beacon.uuid[11],
-			beacon.uuid[12],beacon.uuid[13],beacon.uuid[14],beacon.uuid[15],beacon.major,beacon.minor);
     printf("beacon recv: %s\r\n",beacon_id);
 
     /*Check database to play audio*/
@@ -315,25 +339,25 @@ bool introduce(simple_beacon beacon)
 
 void action_process(simple_beacon beacon_now, simple_beacon beacon_new)
 {
-	char id[50];
-	if(beacon_now.major != beacon_new.major && beacon_now.minor != beacon_new.minor){
-		beacon_now = beacon_new;
-		printf("action_process: new beacon \r\n");
-		introduce(beacon_new);
-	}
-	else{
-		/*do nothing*/
-		return;
-	}
+
 }
 
 void action_inzone(void *parameter)
 {
-	simple_beacon beacon_new;
-	simple_beacon beacon_now;
+	static simple_beacon beacon_new;
+	static simple_beacon beacon_now;
 	while(1){
 		if(xQueueReceive(Beacon_Queue_Handle,&beacon_new,portMAX_DELAY)){
-			action_process(beacon_now,beacon_new);
+			printf("action_inzone begin \r\n");
+			if(beacon_now.major != beacon_new.major && beacon_now.minor != beacon_new.minor){
+					beacon_now = beacon_new;
+					printf("action_process: new beacon \r\n");
+					introduce(beacon_new);
+			}
+			else{
+					/*do nothing*/
+					printf("action_process: old beacon \r\n");
+			}
 			printf("action_inzone: action process done \r\n");
 		}
 		else{

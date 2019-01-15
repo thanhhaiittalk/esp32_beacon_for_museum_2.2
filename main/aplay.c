@@ -1,7 +1,7 @@
 
 #include "aplay.h"
 
-
+extern xQueueHandle Audio_Queue_Handle;
 
 #define TAG "aplay"
 
@@ -22,7 +22,6 @@ void aplay_wav(char* filename){
 			ESP_LOGE(TAG,"Failed to open file:%s",filename);
 			return;
 	}
-	//fprintf(f, "Hello %s!\n", card->cid.name);
 	int rlen=fread(&wav_head,1,sizeof(wav_head),f);
 	if(rlen!=sizeof(wav_head)){
 			ESP_LOGE(TAG,"read faliled");

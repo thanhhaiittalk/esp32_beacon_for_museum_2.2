@@ -13,6 +13,12 @@
 #include "hal_i2c.h"
 #include "hal_i2s.h"
 
+#include "freertos/queue.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+
+
 #define GPIO_OUTPUT_IO_0    5
 #define GPIO_OUTPUT_PIN_SEL  ((1<<GPIO_OUTPUT_IO_0))
 
@@ -40,5 +46,6 @@ typedef struct
 void aplay_wav(char* filename);
 void aplay_mp3(char* filename);
 void WM8978_config();
+void audio_task(void *parameter);
  #endif
 

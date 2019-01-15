@@ -52,6 +52,6 @@ void action_process(simple_beacon beacon_now, simple_beacon beacon_new);
 void ibeacon_init();
 bool introduce(simple_beacon beacon);
 bool check_database(char * beacon_id, const char * const json_string);
-
+void audio_task(void *parameter);
 
 #endif /* MAIN_MY_IBEACON_H_ */

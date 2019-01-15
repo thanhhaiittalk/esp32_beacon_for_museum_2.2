@@ -12,10 +12,13 @@
 xQueueHandle Beacon_Queue_Handle = 0;
 xQueueHandle HttpDownload_Queue_Handle = 0;
 xQueueHandle HttpUpdate_Queue_Handle = 0;
+xQueueHandle Audio_Queue_Handle = 0;
+
 
 TaskHandle_t xHttp_download_Handle = NULL;
 TaskHandle_t xHttp_update_Handle = NULL;
 TaskHandle_t xUpdater_Handle = NULL;
+TaskHandle_t xAudio_task_handle = NULL;
 
 xSemaphoreHandle jsonSignal = NULL;
 xSemaphoreHandle downldSignal = NULL;
@@ -40,7 +43,8 @@ void app_main()
     WM8978_config();
     //xTaskCreate(&updater,"updater",2048,NULL,7,xUpdater_Handle);
     //xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xHttp_download_Handle);
-    xTaskCreate(&action_inzone,"action_inzone",2048,NULL,5,NULL);
+    //xTaskCreate(&audio_task,"audio_task",2048,NULL,4,xAudio_task_handle);
+    xTaskCreate(&action_inzone,"action_inzone",4096,NULL,5,NULL);
     if(update_flag == true){
     	//ibeacon_init();
     	//create task action in zone
