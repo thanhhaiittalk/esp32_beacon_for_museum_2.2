@@ -141,27 +141,50 @@ void http_download_task(void *pvParameters)
 	        /* Read HTTP response */
 	        printf("Read HTTP response \n");
 	        bool write_flag = false;
+	        bool wav_flag= false;
+	        bool RIFF_exist = false;
+	        int RIFF_pos = 0;
 	        FILE * f = fopen(rec_data.name,"wb");
 	        if(f==NULL){
 	        	printf("HTTP_Download task: Failed to open file for writing \n");
 	        }
-	        //If it's not a json file, don't need to filter out http header
+
 	        if(strstr(rec_data.name,"json.txt") == NULL){
-	        	write_flag = true;
+	        	wav_flag= true;
 	        }
 	        else{
-	        	printf(rec_data.name);
 	        	json_flag = true;
 	        }
+	        printf("Task download: File name:%s \r\n",rec_data.name);
+
+	        /*Write flag == true means begin write to sd card*/
 	        do {
 	            bzero(recv_buf, sizeof(recv_buf));
 	            r = read(s, recv_buf, sizeof(recv_buf)-1);
+	            if(wav_flag == true){
+	            	if(strstr(recv_buf,"RIFF") != NULL){
+	            		RIFF_pos = (int)strstr(recv_buf,"RIFF")- (int)recv_buf;
+	            		RIFF_exist = true;
+	            	}
+	            }
 	            for(int i = 0; i<r; i++){
 	            	//'{': begin of json file
-	            	if(recv_buf[i] == '{')
-	            		write_flag = true;
-	            	if(write_flag == true)
+	            	if(json_flag == true){
+	            		if(recv_buf[i] == '{'){
+	            			write_flag = true;
+	            		}
+	            	}
+	            	//RIFF: begin of wav file
+	            	if(wav_flag == true){
+	            		if(i >= RIFF_pos && RIFF_exist == true){
+	            			write_flag = true;
+	            		}
+	            	}
+
+	            	if(write_flag == true){
 	            		fputc(recv_buf[i],f);
+	            	}
+
 	            }
 	        } while(r > 0);
 
@@ -169,8 +192,10 @@ void http_download_task(void *pvParameters)
 	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
 	        close(s);
 	    }
-		if(json_flag)
+		if(json_flag){
 			JSON_done = true;
+		}
+
 		xSemaphoreGive(downldSignal);
 		vTaskDelay(5/portTICK_PERIOD_MS);
 	}
@@ -188,7 +213,7 @@ void http_check_update_task(void *pvParameters)
 	char recv_buf[64];
 	char* update_rec;
 	update_rec = (char*)calloc(15,sizeof(char));
-	static const char* request = "GET " WEB_URL " HTTP/1.0\r\n"
+	static const char* request = "GET " JSON_URL " HTTP/1.0\r\n"
 								 "Host: "WEB_SERVER"\r\n"
 								 "User-Agent: esp-idf/1.0 esp32\r\n"
 								 "\r\n";
@@ -253,12 +278,15 @@ void http_check_update_task(void *pvParameters)
 	        do {
 	            bzero(recv_buf, sizeof(recv_buf));
 	            r = read(s, recv_buf, sizeof(recv_buf)-1);
-	            if(strstr(recv_buf,update_rec) == NULL){
-	            	printf("Updates are available \n");
-	            	printf("Delete old files and download new version... \n");
-	            	new_version = available;
+	            if(strstr(recv_buf, "update") != NULL){
+	            	if(strstr(recv_buf,update_rec) == NULL){
+	            	   	printf("Updates are available \n");
+	            	   	printf("recv_buf: %s\r\n",recv_buf);
+	            	   	printf("Delete old files and download new version... \n");
+	            	   	new_version = available;
+	            	   	break;
+	            	}
 	            }
-	        	break;
 	        } while(r > 0);
 	        printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, err);
 	        close(s);

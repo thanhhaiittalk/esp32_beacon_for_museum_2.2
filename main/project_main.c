@@ -24,8 +24,9 @@ xSemaphoreHandle jsonSignal = NULL;
 xSemaphoreHandle downldSignal = NULL;
 xSemaphoreHandle updateSignal = NULL;
 
-bool update_flag = false;
 bool json_downloaded = false;
+
+bool download_complete = false;
 
 void app_main()
 {
@@ -37,16 +38,15 @@ void app_main()
     updateSignal = xSemaphoreCreateMutex();
 
 	ESP_ERROR_CHECK(nvs_flash_init());
-    ibeacon_init();
     sd_card_init();
     initialise_wifi();
     WM8978_config();
-    //xTaskCreate(&updater,"updater",2048,NULL,7,xUpdater_Handle);
-    //xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xHttp_download_Handle);
-    //xTaskCreate(&audio_task,"audio_task",2048,NULL,4,xAudio_task_handle);
+/*
+	ibeacon_init();
     xTaskCreate(&action_inzone,"action_inzone",4096,NULL,5,NULL);
-    if(update_flag == true){
-    	//ibeacon_init();
-    	//create task action in zone
-    }
+*/
+
+    xTaskCreate(&updater,"updater",2048,NULL,7,xUpdater_Handle);
+    xTaskCreate(&http_download_task,"http_download_task",2048,NULL,6,xHttp_download_Handle);
+
 }

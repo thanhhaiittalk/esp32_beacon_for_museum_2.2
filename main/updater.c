@@ -17,6 +17,8 @@ extern xQueueHandle HttpUpdate_Queue_Handle;
 extern TaskHandle_t xUpdater_Handle;
 extern TaskHandle_t xHttp_download_Handle;
 extern TaskHandle_t xHttp_update_Handle;
+
+extern bool download_complete;
 TaskHandle_t xParseJSON_Handle = NULL;
 
 extern xSemaphoreHandle downldSignal;
@@ -39,9 +41,9 @@ bool check_file(char * file_name)
 void send_JSON_request()
 {
 	data data;
-	data.url = WEB_URL;
+	data.url = JSON_URL;
 	data.name = JSON_NAME;
-	data.request = 	"GET "WEB_URL" HTTP/1.0\r\n"
+	data.request = 	"GET "JSON_URL" HTTP/1.0\r\n"
 		    		"Host: "WEB_SERVER"\r\n"
 					"User-Agent: esp-idf/1.0 esp32\r\n"
 					"\r\n";
@@ -103,13 +105,17 @@ void parseJSON_downld_data(void *pvParameters)
 				int request_size = url_size + strlen(WEB_REQUEST) +10;
 				data.request = calloc(request_size,sizeof(char));
 				sprintf(data.request,WEB_URL_REQUEST,data.url);
+				printf("data request %s\r\n",data.request);
+				printf("dat url: %s\r\n", data.url);
 			}
 			if(cJSON_IsNumber(id)){
 				int name_size = strlen("/sdcard/xxx.wav");
 				data.name=calloc(name_size,sizeof(char));
 				sprintf(data.name,"/sdcard/%d.wav",id->valueint);
 			}
-			else goto end;
+			else{
+				goto end;
+			}
 
 			while(xSemaphoreTake(downldSignal,portMAX_DELAY) == pdFALSE);
 			if(!xQueueSend(HttpDownload_Queue_Handle,&data,portMAX_DELAY))
@@ -117,14 +123,15 @@ void parseJSON_downld_data(void *pvParameters)
 			else
 				printf("Send request to download data %d \r\n", id->valueint);
 		}
-		printf("go to end\n");
-		goto end;
-	}
+
+		while(xSemaphoreTake(downldSignal,portMAX_DELAY) == pdFALSE);
 end:
-	printf("Download data complete\nDelete http download task \n");
-	cJSON_Delete(muse_json);
-	vTaskDelete(xHttp_download_Handle);
-	vTaskDelete(xParseJSON_Handle);
+		printf("Download data complete\nDelete http download task \n");
+		cJSON_Delete(muse_json);
+		vTaskDelete(xHttp_download_Handle);
+		vTaskDelete(xParseJSON_Handle);
+		break;
+	}
 
 }
 
@@ -177,6 +184,7 @@ void updater(void *pvParameters)
 {
 	static bool send_flag = false;
 	while(1){
+		//printf("Task Updater \r\n");
 		if(check_file(JSON_NAME) == not_available && send_flag == false){
 			printf("UPDATER: JSON is not available\r\n");
 			send_JSON_request();
@@ -198,7 +206,9 @@ void updater(void *pvParameters)
 						parseJSON_delete();
 						unlink("/sdcard/json.txt");
 					}else{
+						printf("Update not available \r\n");
 						printf("Delete task \n");
+						download_complete = true;
 						vTaskDelete(xHttp_download_Handle);
 						vTaskDelete(xUpdater_Handle);
 					}
